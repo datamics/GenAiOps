@@ -1,0 +1,386 @@
+x-airflow-common:
+  &airflow-common
+  build: .
+  environment:
+    - AIRFLOW_UID=50000
+    - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+    - AIRFLOW__CORE__LOAD_EXAMPLES=true
+    - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
+    - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow_password@postgres:5432/airflow
+    - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+    - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/1
+    - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow_password@postgres:5432/airflow
+  user: "${AIRFLOW_UID:-50000}"
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./airflow/plugins:/opt/airflow/plugins
+
+services:
+  # -------------------------
+  # POSTGRES
+  # -------------------------
+  postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: super_secure_postgres_instance_password
+      POSTGRES_DB: postgres
+    volumes:
+      - shared-postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------
+  # REDIS
+  # -------------------------
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - shared-redis-data:/data
+    healthcheck:
+      test: [ "CMD-SHELL", "redis-cli -h 127.0.0.1 -p 6379 ping | grep PONG || exit 1" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------
+  # CLICKHOUSE
+  # -------------------------
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse
+    ports:
+      - "8123:8123"
+      - "9002:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    environment:
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: default
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    restart: always
+
+  # -------------------------
+  # MINIO
+  # -------------------------
+  minio:
+    image: docker.io/minio/minio
+    restart: always
+    entrypoint: sh
+    # create the 'langfuse' bucket before starting the service
+    command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: miniosecret
+    ports:
+      - 9000:9000
+      - 127.0.0.1:9091:9001
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: [ "CMD-SHELL", "timeout 5s bash -c ':> /dev/tcp/127.0.0.1/9000' || exit 1" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------
+  # LANGFUSE INIT (DB migrations)
+  # -------------------------
+  langfuse-init:
+    image: langfuse/langfuse:3
+    command: "prisma migrate deploy --schema=./packages/shared/prisma/schema.prisma"
+    environment:
+      DATABASE_URL: postgresql://langfuse:langfuse_password@postgres:5432/langfuse
+      CLICKHOUSE_MIGRATION_URL: clickhouse://default:default@clickhouse:9000/langfuse
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: default
+      CLICKHOUSE_USE_REPLICATED_TABLES: "false"
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    restart: "no"
+
+  # -------------------------
+  # LANGFUSE SERVER
+  # -------------------------
+  langfuse-server:
+    image: docker.io/langfuse/langfuse:3
+    environment:
+      # --- Database & ClickHouse ---
+      DATABASE_URL: postgresql://langfuse:langfuse_password@postgres:5432/langfuse
+      DIRECT_URL: postgresql://langfuse:langfuse_password@postgres:5432/langfuse
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_MIGRATION_URL: clickhouse://default:default@clickhouse:9000/langfuse
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: default
+      CLICKHOUSE_DATABASE: langfuse
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+
+      # --- Redis ---
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_AUTH: ""
+      REDIS_TLS_ENABLED: "false"
+
+      # --- Node & Auth ---
+      NODE_ENV: production
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: WS1FjZj/n66c2EDLB6wALwiq87VgHxO+xBSHsjpTxpU=
+      SALT: KaG6z6pTMcYFAHoTJ7qhwymI74LB7isN4iuXVLn/2Jo=
+      ENCRYPTION_KEY: fcba9c3171d2577876a86eea4cb6d501216a94d5195795375f2cdd93a442bab8
+
+      # --- Feature Flags ---
+      TELEMETRY_ENABLED: "true"
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+      LANGFUSE_USE_AZURE_BLOB: "false"
+      LANGFUSE_AUTO_CLICKHOUSE_MIGRATION_DISABLED: "true"
+
+
+      # --- S3: Event Uploads ---
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: miniosecret
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+
+      # --- S3: Media Uploads ---
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: miniosecret
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
+
+      # --- S3: Batch Exports (DISABLED) ---
+      LANGFUSE_S3_BATCH_EXPORT_ENABLED: "false"
+      LANGFUSE_S3_BATCH_EXPORT_BUCKET: langfuse
+      LANGFUSE_S3_BATCH_EXPORT_PREFIX: exports/
+      LANGFUSE_S3_BATCH_EXPORT_REGION: auto
+      LANGFUSE_S3_BATCH_EXPORT_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_BATCH_EXPORT_EXTERNAL_ENDPOINT: http://localhost:9000
+      LANGFUSE_S3_BATCH_EXPORT_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_BATCH_EXPORT_SECRET_ACCESS_KEY: miniosecret
+      LANGFUSE_S3_BATCH_EXPORT_FORCE_PATH_STYLE: "true"
+
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      langfuse-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [ "CMD-SHELL", "\
+        pg_isready -h postgres -p 5432 -U langfuse || exit 1 && \
+        redis-cli -h redis ping | grep -q PONG || exit 1 && \
+        curl --silent --fail http://clickhouse:8123/ping || exit 1 && \
+        curl --silent --fail http://localhost:3000/health || exit 1 \
+      " ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  # -------------------------
+  # LANGFUSE WORKER
+  # -------------------------
+  langfuse-worker:
+    image: docker.io/langfuse/langfuse-worker:3
+    environment:
+      # --- DISABLE MIGRATIONS (Prevents Conflicts) ---
+      LANGFUSE_AUTO_CLICKHOUSE_MIGRATION_DISABLED: "true"
+
+      # --- Database & ClickHouse ---
+      DATABASE_URL: postgresql://langfuse:langfuse_password@postgres:5432/langfuse
+      DIRECT_URL: postgresql://langfuse:langfuse_password@postgres:5432/langfuse
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_MIGRATION_URL: clickhouse://default:default@clickhouse:9000/langfuse
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: default
+      CLICKHOUSE_DATABASE: langfuse
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+
+      # --- Redis ---
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_AUTH: ""
+      REDIS_TLS_ENABLED: "false"
+
+      # --- Node & Auth ---
+      NODE_ENV: production
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: WS1FjZj/n66c2EDLB6wALwiq87VgHxO+xBSHsjpTxpU=
+      SALT: KaG6z6pTMcYFAHoTJ7qhwymI74LB7isN4iuXVLn/2Jo=
+      ENCRYPTION_KEY: fcba9c3171d2577876a86eea4cb6d501216a94d5195795375f2cdd93a442bab8
+
+      # --- Feature Flags ---
+      TELEMETRY_ENABLED: "true"
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+      LANGFUSE_USE_AZURE_BLOB: "false"
+
+      # --- S3: Event Uploads ---
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: miniosecret
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+
+      # --- S3: Media Uploads ---
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: miniosecret
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
+
+      # --- S3: Batch Exports (DISABLED) ---
+      LANGFUSE_S3_BATCH_EXPORT_ENABLED: "false"
+      LANGFUSE_S3_BATCH_EXPORT_BUCKET: langfuse
+      LANGFUSE_S3_BATCH_EXPORT_PREFIX: exports/
+      LANGFUSE_S3_BATCH_EXPORT_REGION: auto
+      LANGFUSE_S3_BATCH_EXPORT_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_BATCH_EXPORT_EXTERNAL_ENDPOINT: http://localhost:9000
+      LANGFUSE_S3_BATCH_EXPORT_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_BATCH_EXPORT_SECRET_ACCESS_KEY: miniosecret
+      LANGFUSE_S3_BATCH_EXPORT_FORCE_PATH_STYLE: "true"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      langfuse-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [ "CMD-SHELL", "\
+        pg_isready -h postgres -p 5432 -U langfuse || exit 1 && \
+        redis-cli -h redis ping | grep -q PONG || exit 1 && \
+        curl --silent --fail http://clickhouse:8123/ping || exit 1 \
+      " ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  # -------------------------
+  # AIRFLOW SERVICES
+  # -------------------------
+  airflow-init:
+    <<: *airflow-common
+    command: >
+      bash -c "
+        airflow db migrate &&
+        airflow users create --role Admin --username admin --email admin@example.com --firstname Admin --lastname User --password admin
+      "
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: api-server
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl --fail http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "airflow jobs check --job-type SchedulerJob --local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  airflow-worker:
+    <<: *airflow-common
+    command: celery worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "airflow jobs check --job-type WorkerJob --local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  # -------------------------
+  # QDRANT
+  # -------------------------
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-storage:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:6334/readyz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+volumes:
+  shared-postgres-data:
+  shared-redis-data:
+  clickhouse-data:
+  qdrant-storage:
+  minio-data:
