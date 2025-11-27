@@ -1,21 +1,3 @@
-x-airflow-common:
-  &airflow-common
-  build: .
-  environment:
-    - AIRFLOW_UID=50000
-    - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
-    - AIRFLOW__CORE__LOAD_EXAMPLES=true
-    - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
-    - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow_password@postgres:5432/airflow
-    - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
-    - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/1
-    - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow_password@postgres:5432/airflow
-  user: "${AIRFLOW_UID:-50000}"
-  volumes:
-    - ./airflow/dags:/opt/airflow/dags
-    - ./airflow/logs:/opt/airflow/logs
-    - ./airflow/plugins:/opt/airflow/plugins
-
 services:
   # -------------------------
   # POSTGRES
@@ -37,6 +19,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - shared-net
 
   # -------------------------
   # REDIS
@@ -52,6 +36,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - shared-net
 
   # -------------------------
   # CLICKHOUSE
@@ -73,6 +59,8 @@ services:
       timeout: 5s
       retries: 20
     restart: always
+    networks:
+    - shared-net
 
   # -------------------------
   # MINIO
@@ -96,6 +84,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - shared-net
 
   # -------------------------
   # LANGFUSE INIT (DB migrations)
@@ -117,6 +107,8 @@ services:
       clickhouse:
         condition: service_healthy
     restart: "no"
+    networks:
+      - shared-net
 
   # -------------------------
   # LANGFUSE SERVER
@@ -207,6 +199,8 @@ services:
       timeout: 5s
       retries: 5
     restart: always
+    networks:
+      - shared-net
 
   # -------------------------
   # LANGFUSE WORKER
@@ -295,70 +289,8 @@ services:
       timeout: 5s
       retries: 5
     restart: always
-
-  # -------------------------
-  # AIRFLOW SERVICES
-  # -------------------------
-  airflow-init:
-    <<: *airflow-common
-    command: >
-      bash -c "
-        airflow db migrate &&
-        airflow users create --role Admin --username admin --email admin@example.com --firstname Admin --lastname User --password admin
-      "
-
-  airflow-webserver:
-    <<: *airflow-common
-    command: api-server
-    ports:
-      - "8080:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      airflow-init:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "curl --fail http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: always
-
-  airflow-scheduler:
-    <<: *airflow-common
-    command: scheduler
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      airflow-init:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "airflow jobs check --job-type SchedulerJob --local"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: always
-
-  airflow-worker:
-    <<: *airflow-common
-    command: celery worker
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      airflow-init:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "airflow jobs check --job-type WorkerJob --local"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: always
+    networks:
+       - shared-net
 
   # -------------------------
   # QDRANT
@@ -372,11 +304,60 @@ services:
     volumes:
       - qdrant-storage:/qdrant/storage
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:6334/readyz || exit 1"]
+      test: ["CMD-SHELL", "timeout 5s bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 20s
     restart: always
+    networks:
+      - shared-net
+
+  # -------------------------
+  # Backend
+  # -------------------------
+  backend:
+    container_name: backend
+    build:
+      context: ../backend
+      dockerfile: ./Dockerfile_backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend.env
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 200
+      start_period: 30s
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    restart: always
+    networks:
+      - shared-net
+
+  # -------------------------
+  # Frontend
+  # -------------------------
+  frontend:
+    container_name: frontend
+    build:
+      context: ../frontend
+      dockerfile: ./Dockerfile_frontend
+    ports:
+      - "8501:8501"
+    env_file:
+      - ./frontend.env
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: always
+    networks:
+      - shared-net
+
+
 
 volumes:
   shared-postgres-data:
@@ -384,3 +365,7 @@ volumes:
   clickhouse-data:
   qdrant-storage:
   minio-data:
+
+networks:
+  shared-net:
+    external: true

@@ -17,6 +17,7 @@ endif
 
 REQ = requirements.txt
 DOCKER_DIR = docker-services
+AIRFLOW_DIR = airflow
 
 .PHONY: help setup venv install docker-up docker-down jupyter clean
 
@@ -28,10 +29,12 @@ help:
 	@echo "  make docker-up-airflow	    - Start Airflow Services"
 	@echo "  make docker-up-langfuse	- Start Langfuse Services"
 	@echo "  make docker-up-qdrant	    - Start Qdrant Database"
+	@echo "  make docker-up-chat        - Start Front- and Backend as Docker Containers"
 	@echo "  make docker-down-databases - Stop all Database Containers"
 	@echo "  make docker-down-airflow	- Stop all Airflow Containers"
 	@echo "  make docker-down-langfuse  - Stop all Langfuse Containers"
 	@echo "  make docker-down-qdrant	- Stop the Qdrant Container"
+	@echo "  make docker-down-chat      - Stop Front- and Backend Container"
 	@echo "  make docker-down			- Stop and Remove all Docker containers"
 	@echo "  make jupyter				- Start Jupyter Lab"
 	@echo "  make clean				    - Remove venv and temporary files"
@@ -66,21 +69,21 @@ docker-up:
 	@echo "Starting Docker services..."
 	cd $(DOCKER_DIR) && docker compose up -d
 
-docker-up-databases:
-	@echo "Starting Postges, Redis and Clickhouse services..."
-	cd $(DOCKER_DIR) && docker compose up -d postgres redis clickhouse
-
 docker-up-airflow:
 	@echo "Starting Airflow services..."
-	cd $(DOCKER_DIR) && docker compose up -d airflow-init airflow-webserver airflow-scheduler airflow-worker postgres redis
+	cd $(AIRFLOW_DIR) && docker compose up -d
 
 docker-up-langfuse:
 	@echo "Starting Langfuse services..."
-	cd $(DOCKER_DIR) && docker compose up -d langfuse-init langfuse-server langfuse-worker postgres redis clickhouse minio
+	cd $(DOCKER_DIR) && docker compose up -d langfuse-init langfuse-server langfuse-worker postgres redis clickhouse minio qdrant
 
 docker-up-qdrant:
 	@echo "Starting Qdrant service..."
 	cd $(DOCKER_DIR) && docker compose up -d qdrant
+
+docker-up-chat:
+	@echo "Starting Back- and Frontend..."
+	cd $(DOCKER_DIR) && docker compose up -d backend frontend qdrant
 
 docker-down:
 	@echo "Stopping Docker services..."
@@ -92,7 +95,7 @@ docker-down-databases:
 
 docker-down-airflow:
 	@echo "Stopping Airflow Containers..."
-	cd $(DOCKER_DIR) && docker compose stop airflow-webserver airflow-scheduler airflow-worker
+	cd $(AIRFLOW_DIR) && docker compose down
 
 docker-down-langfuse:
 	@echo "Stopping Langfuse Containers..."
@@ -101,6 +104,10 @@ docker-down-langfuse:
 docker-down-qdrant:
 	@echo "Stopping Qdrant Containers..."
 	cd $(DOCKER_DIR) && docker compose stop qdrant
+
+docker-down-chat:
+	@echo "Stopping Chat Services..."
+	cd $(DOCKER_DIR) && docker compose stop backend frontend
 
 # ---------- Run Jupyter Lab ----------
 jupyter:
