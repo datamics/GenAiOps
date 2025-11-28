@@ -1,5 +1,5 @@
 qdrant:
-  host: "qdrant"
+  host: "localhost"
   port: 6333
   collection_name: "pdf_documents"
   distance: "Cosine"

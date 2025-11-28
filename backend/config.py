@@ -12,15 +12,16 @@ QDRANT_COLLECTION = os.environ.get("qdrant_collection")
 LANGFUSE_PUBLIC_KEY = os.environ.get("LANGFUSE_PUBLIC_KEY")
 LANGFUSE_SECRET_KEY = os.environ.get("LANGFUSE_SECRET_KEY")
 LANGFUSE_HOST = os.environ.get("LANGFUSE_HOST")
-'''
-langfuse = Langfuse(
+
+
+'''langfuse = Langfuse(
     public_key=LANGFUSE_PUBLIC_KEY,
     secret_key=LANGFUSE_SECRET_KEY,
     host=LANGFUSE_HOST
 )
 
-prompt_obj = langfuse.get_prompt("default_prompt", cache_ttl_seconds=60)
-SYSTEM_PROMPT = prompt_obj.compile()
+prompt_obj = langfuse.get_prompt("default", label="production")
+SYSTEM_PROMPT = prompt_obj
 
 if __name__ == "__main__":
     print(f"Loaded Prompt Version: {prompt_obj.version}")
