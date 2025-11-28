@@ -1,0 +1,18 @@
+qdrant:
+  host: "qdrant"
+  port: 6333
+  collection_name: "pdf_documents"
+  distance: "Cosine"
+  vector_size: 384  # dimension of the embedding vectors
+
+embedding_model:
+  name: "all-MiniLM-L6-v2"
+  dimension: 384
+  chunk_size: 400  # number of characters per text chunk
+  chunk_overlap: 200  # number of overlapping characters between chunks
+
+source_data:
+  directory: "source_data" # path to the source data directory
+
+processed_data:
+  directory: "processed_data" # path to the processed data directory
