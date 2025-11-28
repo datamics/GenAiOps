@@ -1,0 +1,16 @@
+backend==0.2.4.1
+dateparser==1.2.2
+fastapi==0.121.3
+langchain_core==1.1.0
+langchain_google_genai==3.1.0
+langchain_huggingface==1.0.1
+langchain_qdrant==1.1.0
+langfuse==3.10.1
+langgraph==1.0.3
+pydantic==2.12.4
+python-dotenv==1.2.1
+pytz==2025.2
+qdrant_client==1.16.0
+uvicorn==0.38.0
+langchain==1.0.8
+sentence_transformers==5.1.2
