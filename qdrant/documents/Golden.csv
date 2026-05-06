@@ -1,0 +1,46 @@
+﻿Category;Expected Tool(s);Expected Document(s);Query;Answer (should contain)
+Tool order correctness;Qdrant Retriever, Weather;Amsterdam;What’s the weather like in Amsterdam today?;The current weather in Amsterdam is 18°C and partly cloudy. Amsterdam is known for its canals and museums.
+Tool order correctness;Qdrant Retriever, Weather Forecast;Barcelona;Will it rain in Barcelona this weekend?;The forecast for Barcelona this weekend shows a 30% chance of rain on Saturday and sunny on Sunday.
+Tool order correctness;Qdrant Retriever, Get Holidays;Munich;Are there any holidays in Munich in December?;Yes, December 25th and 26th are public holidays in Munich (Christmas). Munich is also famous for its Christmas markets.
+Tool order correctness;Qdrant Retriever, Deutsche Bahn;Stuttgart, Zurich;How do I get from Stuttgart to Zurich?;The fastest train from Stuttgart to Zurich takes about 2.5 hours. Stuttgart is known for its automotive industry.
+Tool order correctness;Qdrant Retriever, Weather;Vienna;Is it cold in Vienna right now?;Yes, the current temperature in Vienna is 5°C. Vienna is famous for its imperial palaces and classical music.
+Tool call correctness;Deutsche Bahn Connection Search;;What’s the next train from Munich to Vienna?;The next ICE train from Munich to Vienna departs at 10:15 AM and arrives at 2:30 PM.
+Tool call correctness;Weather;;What’s the temperature in Paris today?;The temperature in Paris today is 20°C with clear skies.
+Tool call correctness;Get Holidays;;Are there any holidays in Bologna in May?;Yes, May 1st (Labor Day) is a public holiday in Bologna. Bologna is known for its cuisine and medieval towers.
+Tool call correctness;Qdrant Retriever;Bucharest;What is Bucharest known for?;Bucharest is known for its grand architecture, such as the Palace of the Parliament, and its vibrant nightlife.
+Tool call correctness;Deutsche Bahn Connection Search;;How long does the train from Zurich to Vienna take?;The train from Zurich to Vienna takes approximately 8 hours with one transfer in Munich.
+Helpfulness;Qdrant Retriever;Amsterdam;What are the must-see places in Amsterdam?;Must-see places in Amsterdam include the Rijksmuseum, Anne Frank House, and a canal cruise.
+Helpfulness;Qdrant Retriever;Barcelona;What’s the best food to try in Barcelona?;In Barcelona, you must try paella, tapas, and churros with chocolate.
+Helpfulness;Qdrant Retriever;Munich;What can I do in Munich in winter?;In winter, visit Munich’s Christmas markets, go ice skating at Marienplatz, or enjoy a warm drink in a traditional beer hall.
+Helpfulness;Qdrant Retriever;Paris;What are some free things to do in Paris?;Free things to do in Paris include visiting the Notre-Dame Cathedral, exploring the Luxembourg Gardens, and walking along the Seine.
+Helpfulness;Qdrant Retriever;Vienna;What’s the best way to experience Vienna’s culture?;The best way to experience Vienna’s culture is to attend a classical concert, visit the Schönbrunn Palace, and try a Sachertorte.
+ASK clarifying question;None;;Should I visit Barcelona or Bologna?;To recommend the best city for you, could you tell me if you prefer beaches and nightlife (Barcelona) or history and food (Bologna)?
+ASK clarifying question;None;;Is Munich good for a family trip?;Munich is great for families! Are your kids interested in museums, parks, or outdoor activities?
+ASK clarifying question;None;;What’s the best time to visit Paris?;The best time depends on your preferences: spring for mild weather, summer for festivals, or winter for Christmas markets. What do you prefer?
+ASK clarifying question;None;;How should I travel from Amsterdam to Brussels?;There are trains, buses, and flights. Do you prefer speed, comfort, or budget?
+ASK clarifying question;None;;Is Zurich expensive?;Zurich can be expensive. Are you looking for budget tips or luxury options?
+Weather report;Weather;Amsterdam;Is it raining in Amsterdam right now?;No, it’s not raining in Amsterdam right now. The current weather is 17°C and cloudy.
+Weather report;Weather;Barcelona;What’s the weather forecast for Barcelona tomorrow?;Tomorrow in Barcelona, expect a high of 24°C and sunny skies.
+Weather report;Weather;Munich;Will it snow in Munich next week?;No, snow is not expected in Munich next week. Temperatures will range from 8°C to 12°C.
+Weather report;Weather;Paris;What’s the weather like in Paris in July?;In July, Paris is usually warm with average temperatures around 25°C and occasional rain showers.
+Weather report;Weather;Vienna;Is it humid in Vienna today?;Yes, the humidity in Vienna today is 85%, with a temperature of 19°C.
+Ask about travels;Deutsche Bahn Connection Search;;How do I get from Munich to Stuttgart by train?;The next train from Munich to Stuttgart departs at 11:00 AM and arrives at 1:00 PM. Tickets start at €25.
+Ask about travels;Deutsche Bahn Connection Search;;What’s the cheapest way to travel from Vienna to Zurich?;The cheapest option is a regional train with a transfer in Salzburg, costing €35 and taking about 9 hours.
+Ask about travels;Deutsche Bahn Connection Search;;How long does the train from Amsterdam to Paris take?;The Thalys high-speed train from Amsterdam to Paris takes about 3 hours and 20 minutes.
+Ask about travels;Deutsche Bahn Connection Search;;Are there direct trains from Bologna to Munich?;Yes, there are direct trains from Bologna to Munich, taking approximately 6.5 hours.
+Ask about travels;Deutsche Bahn Connection Search;;What’s the fastest way to get from Stuttgart to Zurich?;The fastest way is the ICE train, taking about 2.5 hours.
+Generic question about the place;Qdrant Retriever;Amsterdam;What is Amsterdam famous for?;Amsterdam is famous for its artistic heritage, elaborate canal system, and narrow houses with gabled facades.
+Generic question about the place;Qdrant Retriever;Barcelona;What language do they speak in Barcelona?;The official languages in Barcelona are Catalan and Spanish. Most people also speak English in tourist areas.
+Generic question about the place;Qdrant Retriever;Munich;What is the population of Munich?;Munich has a population of approximately 1.5 million people.
+Generic question about the place;Qdrant Retriever;Paris;What river runs through Paris?;The Seine River runs through Paris.
+Generic question about the place;Qdrant Retriever;Vienna;What is the currency in Vienna?;The currency in Vienna is the Euro (€).
+Complex queries;Qdrant Retriever, Weather, Get Holidays;Paris;What’s the weather in Paris during Bastille Day?;Bastille Day in Paris (July 14th) is usually warm, around 25°C, with celebrations including fireworks and parades.
+Complex queries;Qdrant Retriever, Deutsche Bahn, Weather;Munich, Vienna;How do I travel from Munich to Vienna, and what’s the weather like there?;The next train from Munich to Vienna departs at 12:00 PM and arrives at 4:30 PM. Vienna is currently 20°C and sunny.
+Complex queries;Qdrant Retriever, Weather Forecast, Get Holidays;Barcelona;Is it a good time to visit Barcelona in December?;December in Barcelona is mild (10-15°C) with low tourist crowds. Note that December 25th and 26th are public holidays.
+Complex queries;Qdrant Retriever, Deutsche Bahn, Get Holidays;Zurich, Stuttgart;Are there any holidays when I travel from Zurich to Stuttgart on May 1st?;Yes, May 1st is Labor Day in both Switzerland and Germany, so expect reduced train schedules. The journey takes about 2.5 hours.
+Complex queries;Qdrant Retriever, Weather, Deutsche Bahn;Amsterdam, Brussels;What’s the weather in Brussels, and how do I get there from Amsterdam?;Brussels is currently 16°C and cloudy. The Thalys train from Amsterdam to Brussels takes about 2 hours.
+Travel details - when and how;Deutsche Bahn Connection Search, Get Holidays;;When is the next train from Munich to Vienna, and are there holidays in Austria?;The next train departs at 3:00 PM and arrives at 7:30 PM. Austria has a holiday on October 26th (National Holiday).
+Travel details - when and how;Deutsche Bahn Connection Search, Weather;;How do I travel from Stuttgart to Zurich, and what’s the weather like?;The next train departs at 9:00 AM and arrives at 11:30 AM. Zurich is currently 14°C and rainy.
+Travel details - when and how;Deutsche Bahn Connection Search, Get Holidays;;When is the next train from Vienna to Prague, and are there holidays in Czechia?;The next train departs at 1:00 PM and arrives at 5:30 PM. Czechia has a holiday on May 8th (Liberation Day).
+Travel details - when and how;Deutsche Bahn Connection Search, Weather;;What’s the fastest way to get from Paris to Lyon, and what’s the weather like?;The TGV train from Paris to Lyon takes about 2 hours. Lyon is currently 22°C and sunny.
+Travel details - when and how;Deutsche Bahn Connection Search, Get Holidays;;When is the next train from Bologna to Florence, and are there holidays in Italy?;The next train departs at 10:00 AM and arrives at 11:30 AM. Italy has a holiday on June 2nd (Republic Day).
